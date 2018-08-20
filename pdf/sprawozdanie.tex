@@ -1,0 +1,37 @@
+\documentclass{article}
+
+\usepackage{polski}
+\usepackage[cp1250]{inputenc}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{hyperref} 
+\author{Filip Rynkiewicz \& Marcin Daszuta}
+\title{Optymalizacja obliczeñ wartoœci minimalnej oraz maksymalnej na procesorze graficznym GPU}
+\begin{document}
+\maketitle
+
+\section{Wstêp}
+Zadania proste na procesorze CPU nie zawsze mo¿na w trywialny sposób zaimplementowaæ na procesorze graficznym GPU. Zadania takie jak dodawanie elementów w tablicy, szukanie najmniejszej/najwiêkszej liczby ze zbioru mo¿na tutaj daæ jako przyk³ad.
+\section{Treœæ}
+Karta graficzna z powodu swojej architektury wykonuje wiele zadañ na raz. Z tego powodu tak trywialne zadanie jak wyszukiwanie najmniejszej wartoœci w tablicy mo¿na potraktowaæ jako optymalizacyjne wyzwanie. Wprawdzie karty firmy Nvidia udostêpnia tzw. \textit{operacje atomowe}, w których widnieje funkcja \textit{atomicMin()}, lecz jej zachowanie czêsto jest zbyt powolne dla potrzeba algorytmów. Jest to uwarunkowane blokad¹ dostêpu wszystkich mozliwych w¹tków karty graficznej do pamiêci w której s¹ dane.
+
+\subsection{Adresowanie sekwencyjne}
+Jednym z pomys³ów na przyspieszenie takich obliczeñ s¹ operacje \textit{redukcji}. Polegaj¹ one na iteracyjnym wy³¹czniu w¹tków na których wartoœci ju¿ zosta³u obliczone, czyli ich redukcje. 
+Poprzez wy³¹czenie rozumie siê nie wykonywanie obliczeñ na tych w¹tkach. Przyk³ad z Rysunku \ref{fig:wykres} pokazuje algorytm poszukiwania najmniejszego elementu w tablicy. Najwiêkszy element mo¿e byæ wyszukiwany równoczeœnie, duplikuj¹c tablice wejœciow¹.
+
+
+
+\begin{center}
+\begin{figure}[H]
+\includegraphics[width=0.5\textwidth]{exa.png}
+\caption{Przyk³ad poszukiwania elementu najmniejszego w tablicy operacj¹ redukcji}
+\label{fig:wykres}
+\end{figure}
+\end{center}
+
+
+\section{Bibliografia}
+\begin{itemize}
+\item  \url{https://developer.download.nvidia.com/compute/cuda/1.1-Beta/x86_website/projects/reduction/doc/reduction.pdf}
+\end{itemize}
+\end{document}
