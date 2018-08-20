@@ -15,7 +15,7 @@ debug :
 
 buildAll:$(SRCS)
 	$(MKDIR_P)
-	$(CC) $(CFLAGS) -o $(BIN)/$(PROG) $(SRCS) $(LIBS)
+	$(CC) $(CFLAGS) -DSIZE=16 -DBLOCKSIZE=16 -o $(BIN)/$(PROG) $(SRCS) $(LIBS)
 clean:
 	$(RM) $(BIN)
 
