@@ -1,5 +1,8 @@
 \documentclass{article}
-
+\usepackage{listings}
+\newlength\dunder
+\settowidth\dunder{\_}
+\newcommand{\twound}{\rule{2\dunder}{0.4pt}}
 \usepackage{polski}
 \usepackage[cp1250]{inputenc}
 \usepackage{graphicx}
@@ -10,24 +13,60 @@
 \begin{document}
 \maketitle
 
+\lstset{
+	literate={__}{\twound}1,
+ numbers=left,
+stepnumber=1,    
+firstnumber=1,
+numberfirstline=true
+}
 \section{Wstêp}
 Zadania proste na procesorze CPU nie zawsze mo¿na w trywialny sposób zaimplementowaæ na procesorze graficznym GPU. Zadania takie jak dodawanie elementów w tablicy, szukanie najmniejszej/najwiêkszej liczby ze zbioru mo¿na tutaj daæ jako przyk³ad.
-\section{Treœæ}
-Karta graficzna z powodu swojej architektury wykonuje wiele zadañ na raz. Z tego powodu tak trywialne zadanie jak wyszukiwanie najmniejszej wartoœci w tablicy mo¿na potraktowaæ jako optymalizacyjne wyzwanie. Wprawdzie karty firmy Nvidia udostêpnia tzw. \textit{operacje atomowe}, w których widnieje funkcja \textit{atomicMin()}, lecz jej zachowanie czêsto jest zbyt powolne dla potrzeba algorytmów. Jest to uwarunkowane blokad¹ dostêpu wszystkich mozliwych w¹tków karty graficznej do pamiêci w której s¹ dane.
+Karta graficzna z powodu swojej architektury wykonuje wiele zadañ na raz. Z tego powodu tak trywialne zadanie jak wyszukiwanie najmniejszej wartoœci w tablicy mo¿na potraktowaæ jako optymalizacyjne wyzwanie. Wprawdzie karty firmy Nvidia udostêpnia tzw. \textit{operacje atomowe}, w których widnieje funkcja \textit{atomicMin()}, lecz jej zachowanie czêsto jest zbyt powolne dla potrzeba algorytmów. Jest to uwarunkowane blokad¹ dostêpu wszystkich mo¿liwych w¹tków karty graficznej do pamiêci w której s¹ dane. Jednoczeœnie funkcje atomowe nie s¹ zaimplementowane dla liczb zmiennoprzecinkowych. Oczywiœæie mo¿na przed obliczeniami przekszta³ciæ liczbê zmiennoprzecinkow¹ do postaci liczby ca³kowitej, badŸ skorzystaæ z funkcji \textit{atomicCAS}.
 
 \subsection{Adresowanie sekwencyjne}
-Jednym z pomys³ów na przyspieszenie takich obliczeñ s¹ operacje \textit{redukcji}. Polegaj¹ one na iteracyjnym wy³¹czniu w¹tków na których wartoœci ju¿ zosta³u obliczone, czyli ich redukcje. 
-Poprzez wy³¹czenie rozumie siê nie wykonywanie obliczeñ na tych w¹tkach. Przyk³ad z Rysunku \ref{fig:wykres} pokazuje algorytm poszukiwania najmniejszego elementu w tablicy. Najwiêkszy element mo¿e byæ wyszukiwany równoczeœnie, duplikuj¹c tablice wejœciow¹.
+Jednym z pomys³ów na przyspieszenie takich obliczeñ s¹ operacje \textit{redukcji}. Polegaj¹ one na iteracyjnym zmniejszaniu iloœci w¹tków na których obliczenia zosta³y ju¿ wykonane. 
 
+ Przyk³ad z Rysunku \ref{fig:wykres} pokazuje algorytm poszukiwania najmniejszego elementu w tablicy \textit{N}  8-elementowej.Na pocz¹tku algorytmu kernel jest uruchamiany z \textit{n = 4} w¹tkami. Na ka¿dym z nich wykonywana jest operacja porównania elementu \textit{$e_1$} o numerze w¹tku \textit{i} oraz elementu \textit{$e_2$} odsuniêtego od niego o \textit{w=N/2}. Tak wiêc dla w¹tku \textit{i = 0} element \textit{$e_1 = 215$} jest porównywany z elementem \textit{$e_2 = 10$} przesuniêtym o \textit{w=4}. Wynikiem porównania jest zapisanie elementu \textit{$e_1$} jako elementu mniejszego do tablicy dla nastêpnej iteracji algorytmu. Kolejna iteracja wykorzystujê ju¿ 2 w¹tki i porównujê ze sob¹ 4 elementy tablicy, tylko te które zosta³y uznane za mniejsze w poprzedniej iteracji algorytmu. Po ukoñczeniu wszystkich iteracji element najmniejszy w tablicy bêdzie zapisany na pierwszym miejscu takiej tablicy.
+ Najwiêkszy element tablicy wyszukiwany jest w identyczny sposób, niejako przy okazji sprawdzania liczby najmniejszej kosztem jednego dodatkowego porównania i przypisania.
+ \begin{figure}[H]
+ 	\centering
+ 	\includegraphics[width=0.5\textwidth]{exa.png}
+ 	\caption{Przyk³ad poszukiwania elementu najmniejszego w tablicy operacj¹ redukcji}
+ 	\label{fig:wykres}
+ \end{figure}
+ 
+\subsection{Implementacja}
+Implementacja powy¿ej wymienionego pomys³u zosta³a stworzona za pomoc¹ 2 kerneli.
+Pierwszy z nich $seq\_minmaxKernel$ wykonujê siê jako pierwszy. Przyjmuj¹c tablice \textit{max},\textit{min} oraz \textit{a}. . Tablica \textit{a} jest tablic¹ w której algorytm ma wyszukaæ liczbê najmniejsz¹ oraz najwiêksz¹. Tablica max oraz min to tablice w których przechowywany jest wynik porównañ, tablice te posiadaj¹ rozmiar dwa razy mniejszy ni¿ tablica \textit{a}. 
 
+Wa¿n¹ czêœci¹ tego kernela jest stworzenie dwóch tablic $s\_min$ oraz $s\_max$ w pamiêci wspó³dzielonej dla bloku w¹tków. Ka¿dy w¹tek w bloku przepisujê wartoœci z tablicy \textit{a} do tablic w pamiêci wspó³dzielonej. Nastêpuje pierwsza synchronizacj¹ w¹tków. Kolejnym krokiem jest iterowanie przez po³owê tablicy \textit{a}, wykonanie porównañ oraz odpowiednie podmienienie wartoœci w tablicach wspó³dzielonych. Po ka¿dej takiej iteracji nastêpuje synchronizacja w¹tków. Ostatnim krokiem tego kernela dla w¹tku numer 0 jest przypisanie wartoœci minimalnej z ka¿dego bloku w¹tków do tablic przekazanych przy uruchomieniu kernela \textit{$min$} oraz \textit{$max$}. 
+
+Kolejny kernel ró¿ni siê od poprzedniego parametrami wejœciowymi oraz sposobem uruchamiania. Do tego kernela przekazywane s¹ tablice uzyskane w kernelu poprzednim. Nastêpnie wartoœci z nich przepisywane s¹ do tablic wspó³dzielonych i nastêpuje pierwsza synchronizacja. Kolejnym krokiem jest wykonanie porównañ, w taki sam sposób jak by³o to robione w poprzednim kernelu. Na koniec ka¿dy w¹tek zerowy w bloku przepisujê wartoœæ najmniejsz¹ i najwiêksz¹ do tablicy wynikowych.
+
+Ró¿nica pomiêdzy kernelem $seq\_finalminmaxKernel$ a $seq\_minmaxKernel$ jest jeszcze sposób uruchamiania.
+Drugi z nich uruchamiany jest tylko z jednym blokiem w którym jest dimBlock w¹tków, natomiast pierwszy uruchamiany jest z dimGrid na dimBlock. 
+\begin{lstlisting}
+seq_minmaxKernel <<< dimGrid, dimBlock>>>(dev_max, dev_min, dev_a);
+seq_finalminmaxKernel <<< 1, dimBlock>>>(dev_max, dev_min);
+\end{lstlisting}
+ Pierwszy z nich musi te¿ posiadaæ tak¹ sam¹ iloœæ w¹tków w bloków co iloœæ bloków, np (1024 bloki i w ka¿dym 1024). Jedynym zastrze¿eniem jest aby iloœæ bloków opiera³a siê na funkcji wyk³adniczej o podstawie dwa gdzie wyk³adnik nale¿y do liczb naturalnych.
+
+\lstinputlisting{kernel.cu}
 \subsection{Wyniki}
-\begin{center}
-\begin{figure}[H]
-\includegraphics[width=0.5\textwidth]{exa.png}
-\caption{Przyk³ad poszukiwania elementu najmniejszego w tablicy operacj¹ redukcji}
-\label{fig:wykres}
+Wyniki przedstawione na Rysunku \ref{fig:wyniki} zosta³y uzyskane na Procesorze Intel Core i7-5700HQ CPU @ 2.70GHz oraz na NVIDIA GeForce GTX960M. Dane losowe w tablicach zosta³y wygenerowane losowo z zakresu od -1 do 1, dla rozmiaru tablic w zakresie od 16 do 1045876 elementów.
+GPU zosta³o uruchomione na systemie Ubuntu 14 LTS(GPU) oraz Windows 8.1 (CPU).
+
+Tablice o ma³ych rozmiarach, to znaczy poni¿ej 65536 elementów przeszukuj¹ siê szybciej dla CPU. Znaczny spadek szybkoœci wykonywania siê algorytmu nastêpuje dopiero po przekroczeniu tej liczby i dopiero wtedy mo¿na zauwa¿yæ przewagê optymalizacyjn¹ obliczeñ na GPU dla tego zagadnienia.
+
+
+ \begin{figure}[H]
+	\centering
+	\includegraphics[width=1.0\textwidth]{wykres.png}
+	\caption{Wyniki porównawcze dla GPU i CPU szukania najmniejszej i najwiêkszej wartoœci w zbiorze liczb zmiennoprzecinkowych.}
+	\label{fig:wyniki}
 \end{figure}
-\end{center}
+
 
 
 \section{Bibliografia}
