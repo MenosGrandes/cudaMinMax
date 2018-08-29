@@ -27,6 +27,7 @@ __global__ void seq_minmaxKernel(double* max, double* min, const double* a)
         max[blockIdx.x] = s_max[0];
         min[blockIdx.x] = s_min[0];
     }
+
 }
 __global__ void seq_finalminmaxKernel(double* max, double* min)
 {

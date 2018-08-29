@@ -35,8 +35,8 @@ int  minmaxCuda(double* max, double* min, const double* a)
     seq_minmaxKernel <<< dimGrid, dimBlock>>>(dev_max, dev_min, dev_a);
     cudaThreadSynchronize();
     seq_finalminmaxKernel <<< 1, dimBlock>>>(dev_max, dev_min);
-    TIMERSTOP(SeqMinMaxKernel);
     cudaThreadSynchronize();
+    TIMERSTOP(SeqMinMaxKernel);
     CUERR;
 
     if (cudaDeviceSynchronize() != cudaSuccess)
@@ -88,7 +88,7 @@ int main()
             minMax.second = a[i];
         }
 
-        std::cout << a[i] << " ";
+        //std::cout << a[i] << " ";
     }
 
     std::cout << std::endl;

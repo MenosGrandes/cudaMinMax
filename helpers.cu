@@ -33,8 +33,7 @@
             cudaEventRecord(stop##label, 0);                                   \
             cudaEventSynchronize(stop##label);                                 \
             cudaEventElapsedTime(&time##label, start##label, stop##label);     \
-            std::cout << "TIMING: " << time##label << " ms (" << #label << ")" \
-                      << std::endl;
+            std::cout << time##label << std::endl;
 #endif
 
 
